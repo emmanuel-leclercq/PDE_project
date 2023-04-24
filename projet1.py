@@ -220,4 +220,64 @@ def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
             rhs[nodes] += area * f_gauss * N * gauss_weights[i]
 
     return rhs
+    
+def PlotApproximation(vtx, elt, u_h, u_ex_proj):
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
+    
+    # Afficher la solution numérique u_h
+    tri = mtri.Triangulation(vtx[:, 0], vtx[:, 1], triangles=elt)
+    plot1 = ax[0].tripcolor(tri, u_h, shading='flat', cmap='viridis')
+    fig.colorbar(plot1, ax=ax[0], orientation='vertical', label='u_h')
+    ax[0].triplot(tri, 'k--', alpha=0.3)
+    ax[0].set_title('Solution numérique u_h')
+    
+    # Afficher l'erreur u_h - Π_h u_ex
+    error = np.abs(u_h - u_ex_proj)
+    plot2 = ax[1].tripcolor(tri, error, shading='flat', cmap='viridis')
+    fig.colorbar(plot2, ax=ax[1], orientation='vertical', label='Erreur')
+    ax[1].triplot(tri, 'k--', alpha=0.3)
+    ax[1].set_title('Erreur u_h - Π_h u_ex')
+    
+    plt.tight_layout()
+    plt.show()
 
+# Calculer les valeurs nodales de la solution exacte projetée
+u_ex_proj = np.array([u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
+
+# Appeler la fonction PlotApproximation
+PlotApproximation(vtx, elt, u_numerical, u_ex_proj)
+
+
+def L2_norm(vtx, elt, values):
+    area = np.abs(np.cross(vtx[elt[:, 1]] - vtx[elt[:, 0]], vtx[elt[:, 2]] - vtx[elt[:, 0]])) / 2
+    nodal_mean = np.mean(values[elt], axis=1)
+    return np.sqrt(np.sum(area * nodal_mean**2))
+
+refinements = np.arange(1, 11)  # Niveaux de raffinement du maillage
+error_ratios = []
+
+for refinement in refinements:
+    # Générer un maillage avec le niveau de raffinement actuel
+    vtx, elt = GenerateRectangleMesh(L_x, L_y, refinement * N_x, refinement * N_y)
+
+    # Résoudre le problème pour le maillage actuel et obtenir la solution numérique u_h
+    u_numerical = solve_problem(vtx, elt, b, c, p, q, r)
+
+    # Calculer les valeurs nodales de la solution exacte projetée
+    u_ex_proj = np.array([u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
+
+    # Calculer les normes L2 de l'erreur et de la solution exacte projetée
+    error_norm = L2_norm(vtx, elt, u_numerical - u_ex_proj)
+    u_ex_proj_norm = L2_norm(vtx, elt, u_ex_proj)
+
+    # Calculer le rapport d'erreur et l'ajouter à la liste des rapports d'erreur
+    error_ratios.append(error_norm / u_ex_proj_norm)
+
+# Tracer la convergence de l'erreur
+plt.figure()
+plt.plot(refinements, error_ratios, 'o-', label="Rapport d'erreur")
+plt.xlabel('Niveau de raffinement')
+plt.ylabel('∥ u_h − Π_h u_ex ∥_L^2 (Ω) / ∥ Π_h u_ex∥L2(Ω)')
+plt.title('Convergence de l\'erreur')
+plt.legend()
+plt.show()
