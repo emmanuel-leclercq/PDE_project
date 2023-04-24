@@ -174,5 +174,50 @@ def generate_second_matrix(vtx, elt, b):
     R = diags(local_contrib, shape=(len(vtx), len(vtx)))
 
     return R
-    
-    
+
+def f_source(x, y, b_x, b_y, p, q, r):
+    return np.exp((b_x * x + b_y * y) / 2) * np.sin(p * r * np.pi * x) * np.sin(q * r * np.pi * y)
+
+def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
+    n_elts = elt.shape[0]
+    n_nodes = vtx.shape[0]
+
+    # Points et poids de Gauss
+    gauss_points = np.array([[-np.sqrt(1/3), -np.sqrt(1/3)],
+                             [ np.sqrt(1/3), -np.sqrt(1/3)],
+                             [ np.sqrt(1/3),  np.sqrt(1/3)],
+                             [-np.sqrt(1/3),  np.sqrt(1/3)]])
+    gauss_weights = np.array([1, 1, 1, 1])
+
+    # Initialisation du second membre (RHS)
+    rhs = np.zeros(n_nodes)
+
+    # Boucle sur les éléments
+    for e in range(n_elts):
+        nodes = elt[e, :]
+
+        # Calcul de l'aire de l'élément
+        v0, v1, v2 = vtx[nodes, :]
+        area = 0.5 * abs(np.linalg.det(np.array([[v1[0]-v0[0], v1[1]-v0[1]], [v2[0]-v0[0], v2[1]-v0[1]]])))
+
+        # Boucle sur les points de Gauss
+        for i, gp in enumerate(gauss_points):
+            xi, eta = gp
+            # Fonctions de forme
+            N0 = 1 - xi - eta
+            N1 = xi
+            N2 = eta
+            N = np.array([N0, N1, N2])
+
+            # Coordonnées du point de Gauss dans l'élément
+            x_gauss = np.dot(N, vtx[nodes, 0])
+            y_gauss = np.dot(N, vtx[nodes, 1])
+
+            # Évaluation de la fonction source f au point de Gauss
+            f_gauss = f_source(x_gauss, y_gauss, b_x, b_y, p, q, r)
+
+            # Mise à jour du second membre
+            rhs[nodes] += area * f_gauss * N * gauss_weights[i]
+
+    return rhs
+
