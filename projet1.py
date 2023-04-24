@@ -1,23 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.tri as tri
+import matplotlib.tri as mtri
 from scipy.sparse import coo_matrix, diags
 
-def PlotMesh(vtx, elt, val=None):
-    plt.figure()
-    
-    if val is None:
-        plt.triplot(vtx[:, 0], vtx[:, 1], elt)
-    else:
-        cmap = plt.get_cmap('viridis')
-        triang = tri.Triangulation(vtx[:, 0], vtx[:, 1], elt)
-        plt.tripcolor(triang, val, cmap=cmap, shading='flat', edgecolors='k', lw=0.5)
-        plt.colorbar()
+# 1.a
 
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.title('Maillage')
-    plt.show()
 
 def GenerateRectangleMesh(Lx, Ly, Nx, Ny):
     nbr_vtx = (Nx + 1) * (Ny + 1)
@@ -56,14 +43,14 @@ def GenerateRectangleMesh(Lx, Ly, Nx, Ny):
 
     return vtx, elt
 
+
 # Exemple d'utilisation
-Lx = 0.7
-Ly = 0.5
-Nx = 30
-Ny = 40
+Lx, Ly, Nx, Ny = 0.7, 0.5, 30, 40
 
 vtx, elt = GenerateRectangleMesh(Lx, Ly, Nx, Ny)
 PlotMesh(vtx, elt)
+
+# 1.b
 
 def GenerateLShapeMesh(N, Nl):
     assert 0 < Nl <= N, "Nl doit être compris entre 0 et N."
@@ -84,15 +71,35 @@ def GenerateLShapeMesh(N, Nl):
 
     return vtx, elt
 
+# 1.c
+
+def PlotMesh(vtx, elt, val=None):
+    plt.figure()
+
+    if val is None:
+        plt.triplot(vtx[:, 0], vtx[:, 1], elt)
+    else:
+        cmap = plt.get_cmap('viridis')
+        triang = mtri.Triangulation(vtx[:, 0], vtx[:, 1], elt)
+        plt.tripcolor(triang, val, cmap=cmap,
+                      shading='flat', edgecolors='k', lw=0.5)
+        plt.colorbar()
+
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.title('Maillage')
+    plt.show()
+
+
 # Exemple d'utilisation
 N = 15
 Nl = 6
 
 vtx, elt = GenerateLShapeMesh(N, Nl)
-val=np.zeros(vtx.shape[0])
+val = np.zeros(vtx.shape[0])
 PlotMesh(vtx, elt, val)
 
-
+#2.b
 def generate_rig_matrix(vtx, elt):
     nbr_vtx = len(vtx)
     nbr_elt = len(elt)
@@ -122,7 +129,8 @@ def generate_rig_matrix(vtx, elt):
     data = B.flatten()
 
     # Créer la matrice COO à partir des données assemblées
-    K = coo_matrix((data, (I.flatten(), J.flatten())), shape=(nbr_vtx, nbr_vtx))
+    K = coo_matrix((data, (I.flatten(), J.flatten())),
+                   shape=(nbr_vtx, nbr_vtx))
 
     return K
 
@@ -153,11 +161,13 @@ def generate_second_matrix(vtx, elt, b):
     J = np.repeat(elt[:, None, :], 3, axis=1)
     data = C_local.flatten()
 
-    C = coo_matrix((data, (I.flatten(), J.flatten())), shape=(nbr_vtx, nbr_vtx))
+    C = coo_matrix((data, (I.flatten(), J.flatten())),
+                   shape=(nbr_vtx, nbr_vtx))
 
     return C
-    
-    def generate_mass_matrix(vtx, elt, c):
+
+
+def generate_mass_matrix(vtx, elt, c):
     # Calculer les aires des éléments
     v0 = vtx[elt[:, 0]]
     v1 = vtx[elt[:, 1]]
@@ -175,17 +185,19 @@ def generate_second_matrix(vtx, elt, b):
 
     return R
 
+
 def f_source(x, y, b_x, b_y, p, q, r):
     return np.exp((b_x * x + b_y * y) / 2) * np.sin(p * r * np.pi * x) * np.sin(q * r * np.pi * y)
 
+#3.b
 def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
     n_elts = elt.shape[0]
     n_nodes = vtx.shape[0]
 
     # Points et poids de Gauss
     gauss_points = np.array([[-np.sqrt(1/3), -np.sqrt(1/3)],
-                             [ np.sqrt(1/3), -np.sqrt(1/3)],
-                             [ np.sqrt(1/3),  np.sqrt(1/3)],
+                             [np.sqrt(1/3), -np.sqrt(1/3)],
+                             [np.sqrt(1/3),  np.sqrt(1/3)],
                              [-np.sqrt(1/3),  np.sqrt(1/3)]])
     gauss_weights = np.array([1, 1, 1, 1])
 
@@ -198,7 +210,9 @@ def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
 
         # Calcul de l'aire de l'élément
         v0, v1, v2 = vtx[nodes, :]
-        area = 0.5 * abs(np.linalg.det(np.array([[v1[0]-v0[0], v1[1]-v0[1]], [v2[0]-v0[0], v2[1]-v0[1]]])))
+        area = 0.5 * \
+            abs(np.linalg.det(
+                np.array([[v1[0]-v0[0], v1[1]-v0[1]], [v2[0]-v0[0], v2[1]-v0[1]]])))
 
         # Boucle sur les points de Gauss
         for i, gp in enumerate(gauss_points):
@@ -220,26 +234,28 @@ def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
             rhs[nodes] += area * f_gauss * N * gauss_weights[i]
 
     return rhs
-    
+
+#3.d
 def PlotApproximation(vtx, elt, u_h, u_ex_proj):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
-    
+
     # Afficher la solution numérique u_h
     tri = mtri.Triangulation(vtx[:, 0], vtx[:, 1], triangles=elt)
     plot1 = ax[0].tripcolor(tri, u_h, shading='flat', cmap='viridis')
     fig.colorbar(plot1, ax=ax[0], orientation='vertical', label='u_h')
     ax[0].triplot(tri, 'k--', alpha=0.3)
     ax[0].set_title('Solution numérique u_h')
-    
+
     # Afficher l'erreur u_h - Π_h u_ex
     error = np.abs(u_h - u_ex_proj)
     plot2 = ax[1].tripcolor(tri, error, shading='flat', cmap='viridis')
     fig.colorbar(plot2, ax=ax[1], orientation='vertical', label='Erreur')
     ax[1].triplot(tri, 'k--', alpha=0.3)
     ax[1].set_title('Erreur u_h - Π_h u_ex')
-    
+
     plt.tight_layout()
     plt.show()
+
 
 # Calculer les valeurs nodales de la solution exacte projetée
 u_ex_proj = np.array([u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
@@ -249,22 +265,26 @@ PlotApproximation(vtx, elt, u_numerical, u_ex_proj)
 
 
 def L2_norm(vtx, elt, values):
-    area = np.abs(np.cross(vtx[elt[:, 1]] - vtx[elt[:, 0]], vtx[elt[:, 2]] - vtx[elt[:, 0]])) / 2
+    area = np.abs(
+        np.cross(vtx[elt[:, 1]] - vtx[elt[:, 0]], vtx[elt[:, 2]] - vtx[elt[:, 0]])) / 2
     nodal_mean = np.mean(values[elt], axis=1)
     return np.sqrt(np.sum(area * nodal_mean**2))
+
 
 refinements = np.arange(1, 11)  # Niveaux de raffinement du maillage
 error_ratios = []
 
 for refinement in refinements:
     # Générer un maillage avec le niveau de raffinement actuel
-    vtx, elt = GenerateRectangleMesh(L_x, L_y, refinement * N_x, refinement * N_y)
+    vtx, elt = GenerateRectangleMesh(
+        L_x, L_y, refinement * N_x, refinement * N_y)
 
     # Résoudre le problème pour le maillage actuel et obtenir la solution numérique u_h
     u_numerical = solve_problem(vtx, elt, b, c, p, q, r)
 
     # Calculer les valeurs nodales de la solution exacte projetée
-    u_ex_proj = np.array([u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
+    u_ex_proj = np.array(
+        [u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
 
     # Calculer les normes L2 de l'erreur et de la solution exacte projetée
     error_norm = L2_norm(vtx, elt, u_numerical - u_ex_proj)
