@@ -45,6 +45,7 @@ def GenerateRectangleMesh(Lx, Ly, Nx, Ny):
 
 # 1.b
 
+
 def GenerateLShapeMesh(N, Nl):
     assert 0 < Nl <= N, "Nl doit être compris entre 0 et N."
 
@@ -66,6 +67,7 @@ def GenerateLShapeMesh(N, Nl):
 
 # 1.c
 
+
 def PlotMesh(vtx, elt, val=None):
     plt.figure()
 
@@ -83,7 +85,9 @@ def PlotMesh(vtx, elt, val=None):
     plt.title('Maillage')
     plt.show()
 
-#2.b
+# 2.b
+
+
 def generate_rig_matrix(vtx, elt):
     nbr_vtx = len(vtx)
     nbr_elt = len(elt)
@@ -118,6 +122,7 @@ def generate_rig_matrix(vtx, elt):
 
     return K
 
+
 def generate_second_matrix(vtx, elt, b):
     nbr_vtx = len(vtx)
     nbr_elt = len(elt)
@@ -149,6 +154,7 @@ def generate_second_matrix(vtx, elt, b):
 
     return C
 
+
 def generate_mass_matrix(vtx, elt, c):
     # Calculer les aires des éléments
     v0 = vtx[elt[:, 0]]
@@ -167,65 +173,51 @@ def generate_mass_matrix(vtx, elt, c):
 
     return R
 
-#2.c
+# 2.c
+
+
 def generate_global_matrix(vtx, elt, b, c):
-  return generate_rig_matrix(vtx,elt)+generate_second_matrix(vtx,elt,b)+generate_mass_matrix(vtx, elt, c)
+    return generate_rig_matrix(vtx, elt)+generate_second_matrix(vtx, elt, b)+generate_mass_matrix(vtx, elt, c)
 
 
 def f_source(x, y, b_x, b_y, p, q, r):
     return np.exp((b_x * x + b_y * y) / 2) * np.sin(p * r * np.pi * x) * np.sin(q * r * np.pi * y)
 
-#3.a
+
+# 3.a
 """ des calculs montrent que alpha=1/(c + bx^2/4 + by^2/4 + (pr%pi)^2 + (qr%pi)^2 )"""
 
-#3.b
-def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
-    n_elts = elt.shape[0]
-    n_nodes = vtx.shape[0]
+# 3.b
 
-    # Points et poids de Gauss
-    gauss_points = np.array([[-np.sqrt(1/3), -np.sqrt(1/3)],
-                             [np.sqrt(1/3), -np.sqrt(1/3)],
-                             [np.sqrt(1/3),  np.sqrt(1/3)],
-                             [-np.sqrt(1/3),  np.sqrt(1/3)]])
-    gauss_weights = np.array([1, 1, 1, 1])
 
-    # Initialisation du second membre (RHS)
-    rhs = np.zeros(n_nodes)
+def assemble_source_term(vtx, elt, f):
+    n = len(vtx)
+    b = np.zeros(n)
 
-    # Boucle sur les éléments
-    for e in range(n_elts):
-        nodes = elt[e, :]
+    # Parcourir tous les éléments du maillage
+    for i in range(len(elt)):
+        element = elt[i]
 
-        # Calcul de l'aire de l'élément
-        v0, v1, v2 = vtx[nodes, :]
-        area = 0.5 * \
-            abs(np.linalg.det(
-                np.array([[v1[0]-v0[0], v1[1]-v0[1]], [v2[0]-v0[0], v2[1]-v0[1]]])))
+        # Calculer la contribution de chaque élément
+        for j in range(3):
+            # Récupérer les sommets du triangle
+            v1, v2, v3 = vtx[element]
 
-        # Boucle sur les points de Gauss
-        for i, gp in enumerate(gauss_points):
-            xi, eta = gp
-            # Fonctions de forme
-            N0 = 1 - xi - eta
-            N1 = xi
-            N2 = eta
-            N = np.array([N0, N1, N2])
+            # Calculer l'aire du triangle
+            area = 0.5 * abs((v2[0]-v1[0])*(v3[1]-v1[1]) -
+                             (v3[0]-v1[0])*(v2[1]-v1[1]))
 
-            # Coordonnées du point de Gauss dans l'élément
-            x_gauss = np.dot(N, vtx[nodes, 0])
-            y_gauss = np.dot(N, vtx[nodes, 1])
+            # Calculer le centre du triangle
+            centroid = (v1 + v2 + v3) / 3
 
-            # Évaluation de la fonction source f au point de Gauss
-            f_gauss = f_source(x_gauss, y_gauss, b_x, b_y, p, q, r)
+            # Ajouter la contribution de l'élément à l'intégrale
+            b[element[j]] += area * f(*centroid)
 
-            # Mise à jour du second membre
-            rhs[nodes] += area * f_gauss * N * gauss_weights[i]
+    return b
+# 3.d
 
-    return rhs
 
-#3.d
-def PlotApproximation(vtx, elt, u_h, u_ex_proj):
+def plot_approximation(vtx, elt, u_h, u_ex_proj):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
 
     # Afficher la solution numérique u_h
@@ -245,7 +237,8 @@ def PlotApproximation(vtx, elt, u_h, u_ex_proj):
     plt.tight_layout()
     plt.show()
 
+
 Lx, Ly, Nx, Ny = 0.7, 0.5, 30, 40
 
 vtx, elt = GenerateRectangleMesh(Lx, Ly, Nx, Ny)
-#PlotMesh(vtx, elt)
+# PlotMesh(vtx, elt)
