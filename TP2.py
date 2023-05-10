@@ -1,4 +1,6 @@
 import numpy as np
+from matplotlib import pyplot as plt
+import matplotlib.tri as tri
 
 def PrintFile(filename):
     with open(filename, 'r') as file:
@@ -118,3 +120,5 @@ for i in range(nbr_vtx):
 
 # 4. Utiliser la fonction PlotMesh pour afficher l'interpolation linéaire des valeurs nodales sur le maillage
 PlotMesh(vtx, elt, val)
+
+print("done")
