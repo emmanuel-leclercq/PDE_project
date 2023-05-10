@@ -43,13 +43,6 @@ def GenerateRectangleMesh(Lx, Ly, Nx, Ny):
 
     return vtx, elt
 
-
-# Exemple d'utilisation
-Lx, Ly, Nx, Ny = 0.7, 0.5, 30, 40
-
-vtx, elt = GenerateRectangleMesh(Lx, Ly, Nx, Ny)
-PlotMesh(vtx, elt)
-
 # 1.b
 
 def GenerateLShapeMesh(N, Nl):
@@ -90,15 +83,6 @@ def PlotMesh(vtx, elt, val=None):
     plt.title('Maillage')
     plt.show()
 
-
-# Exemple d'utilisation
-N = 15
-Nl = 6
-
-vtx, elt = GenerateLShapeMesh(N, Nl)
-val = np.zeros(vtx.shape[0])
-PlotMesh(vtx, elt, val)
-
 #2.b
 def generate_rig_matrix(vtx, elt):
     nbr_vtx = len(vtx)
@@ -134,7 +118,6 @@ def generate_rig_matrix(vtx, elt):
 
     return K
 
-
 def generate_second_matrix(vtx, elt, b):
     nbr_vtx = len(vtx)
     nbr_elt = len(elt)
@@ -166,7 +149,6 @@ def generate_second_matrix(vtx, elt, b):
 
     return C
 
-
 def generate_mass_matrix(vtx, elt, c):
     # Calculer les aires des éléments
     v0 = vtx[elt[:, 0]]
@@ -185,9 +167,16 @@ def generate_mass_matrix(vtx, elt, c):
 
     return R
 
+#2.c
+def generate_global_matrix(vtx, elt, b, c):
+  return generate_rig_matrix(vtx,elt)+generate_second_matrix(vtx,elt,b)+generate_mass_matrix(vtx, elt, c)
+
 
 def f_source(x, y, b_x, b_y, p, q, r):
     return np.exp((b_x * x + b_y * y) / 2) * np.sin(p * r * np.pi * x) * np.sin(q * r * np.pi * y)
+
+#3.a
+""" des calculs montrent que alpha=1/(c + bx^2/4 + by^2/4 + (pr%pi)^2 + (qr%pi)^2 )"""
 
 #3.b
 def assemble_rhs(vtx, elt, b_x, b_y, p, q, r):
@@ -256,48 +245,7 @@ def PlotApproximation(vtx, elt, u_h, u_ex_proj):
     plt.tight_layout()
     plt.show()
 
+Lx, Ly, Nx, Ny = 0.7, 0.5, 30, 40
 
-# Calculer les valeurs nodales de la solution exacte projetée
-u_ex_proj = np.array([u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
-
-# Appeler la fonction PlotApproximation
-PlotApproximation(vtx, elt, u_numerical, u_ex_proj)
-
-
-def L2_norm(vtx, elt, values):
-    area = np.abs(
-        np.cross(vtx[elt[:, 1]] - vtx[elt[:, 0]], vtx[elt[:, 2]] - vtx[elt[:, 0]])) / 2
-    nodal_mean = np.mean(values[elt], axis=1)
-    return np.sqrt(np.sum(area * nodal_mean**2))
-
-
-refinements = np.arange(1, 11)  # Niveaux de raffinement du maillage
-error_ratios = []
-
-for refinement in refinements:
-    # Générer un maillage avec le niveau de raffinement actuel
-    vtx, elt = GenerateRectangleMesh(
-        L_x, L_y, refinement * N_x, refinement * N_y)
-
-    # Résoudre le problème pour le maillage actuel et obtenir la solution numérique u_h
-    u_numerical = solve_problem(vtx, elt, b, c, p, q, r)
-
-    # Calculer les valeurs nodales de la solution exacte projetée
-    u_ex_proj = np.array(
-        [u_ex(v[0], v[1], b_x, b_y, p, q, r, alpha) for v in vtx])
-
-    # Calculer les normes L2 de l'erreur et de la solution exacte projetée
-    error_norm = L2_norm(vtx, elt, u_numerical - u_ex_proj)
-    u_ex_proj_norm = L2_norm(vtx, elt, u_ex_proj)
-
-    # Calculer le rapport d'erreur et l'ajouter à la liste des rapports d'erreur
-    error_ratios.append(error_norm / u_ex_proj_norm)
-
-# Tracer la convergence de l'erreur
-plt.figure()
-plt.plot(refinements, error_ratios, 'o-', label="Rapport d'erreur")
-plt.xlabel('Niveau de raffinement')
-plt.ylabel('∥ u_h − Π_h u_ex ∥_L^2 (Ω) / ∥ Π_h u_ex∥L2(Ω)')
-plt.title('Convergence de l\'erreur')
-plt.legend()
-plt.show()
+vtx, elt = GenerateRectangleMesh(Lx, Ly, Nx, Ny)
+#PlotMesh(vtx, elt)
