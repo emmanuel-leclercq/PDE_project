@@ -124,35 +124,31 @@ class PDE:
         return K
 
     def generate_second_matrix(self):
-        nbr_vtx = len(self.mesh.vtx)
-        nbr_elt = len(self.mesh.elt)
+        # Initialize the matrix
+        second_matrix = np.zeros((self.vtx.shape[0], self.vtx.shape[0]))
 
-        # Calculer les matrices de gradients locaux pour chaque élément
-        v0 = self.mesh.vtx[self.mesh.elt[:, 0]]
-        v1 = self.mesh.vtx[self.mesh.elt[:, 1]]
-        v2 = self.mesh.vtx[self.mesh.elt[:, 2]]
+        # Iterate over each element
+        for el in self.elt:
+            # Get the vertices of the element
+            vertices = self.vtx[el]
 
-        e1 = v1 - v0
-        e2 = v2 - v0
-        areas = 0.5 * np.abs(np.cross(e1, e2))
+            # Compute the area of the element
+            area = 0.5 * abs(np.cross(vertices[1] - vertices[0], vertices[2] - vertices[0]))
 
-        invA = 1 / (2 * areas)
-        b_local = np.zeros((nbr_elt, 3, 2))
-        b_local[:, 0] = (v2 - v1) * invA[:, None]
-        b_local[:, 1] = (v0 - v2) * invA[:, None]
-        b_local[:, 2] = (v1 - v0) * invA[:, None]
+            # Compute the gradient of the shape functions
+            grad_N = np.array([[vertices[1, 1] - vertices[2, 1], vertices[2, 0] - vertices[1, 0]],
+                            [vertices[2, 1] - vertices[0, 1], vertices[0, 0] - vertices[2, 0]],
+                            [vertices[0, 1] - vertices[1, 1], vertices[1, 0] - vertices[0, 0]]]) / (2 * area)
 
-        C_local = np.einsum('ijk,i->ijk', b_local, self.b) * areas[:, None, None]
+            # Compute the local convection matrix
+            local_second_matrix = area * (self.b[0] * np.outer(grad_N[:, 0], grad_N[:, 0]) + self.b[1] * np.outer(grad_N[:, 1], grad_N[:, 1]))
 
-        # Assembler les matrices locales dans la matrice globale
-        I = np.repeat(self.mesh.elt[:, :, None], 3, axis=2)
-        J = np.repeat(self.mesh.elt[:, None, :], 3, axis=1)
-        data = C_local.flatten()
+            # Add the local convection matrix to the global matrix
+            for i in range(3):
+                for j in range(3):
+                    second_matrix[el[i], el[j]] += local_second_matrix[i, j]
 
-        C = coo_matrix((data, (I.flatten(), J.flatten())),
-                       shape=(nbr_vtx, nbr_vtx))
-
-        return C
+        return second_matrix
 
     def generate_mass_matrix(self):
         # Calculer les aires des éléments
@@ -168,7 +164,7 @@ class PDE:
         local_contrib = (areas * c / 3).repeat(3)
 
         # Assembler la matrice globale de réaction
-        R = diags(local_contrib, shape=(len(vtx), len(vtx)))
+        R = diags(local_contrib, shape=(len(slf.mesh.vtx), len(self.mesh.vtx)))
 
         return R
 
