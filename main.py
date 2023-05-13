@@ -1,4 +1,5 @@
-from mesh_and_PDE_classes.py import PDE, Mesh
+from mesh_and_PDE_classes import PDE, Mesh
+import numpy as np
 
 # Création d'un maillage rectangulaire
 rect_mesh = Mesh.generate_rectangle(Lx=1.0, Ly=1.0, Nx=10, Ny=10)

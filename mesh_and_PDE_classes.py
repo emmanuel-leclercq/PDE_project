@@ -53,8 +53,8 @@ class Mesh:
         N2 = N - N1
 
         # Générer les maillages rectangulaires
-        vtx1, elt1 = GenerateRectangleMesh(l,1,N1, N)
-        vtx2, elt2 = GenerateRectangleMesh(1.0-l,l,N2, N1)
+        vtx1, elt1 = GenerateRectangleMesh(l, 1, N1, N)
+        vtx2, elt2 = GenerateRectangleMesh(1.0 - l, l, N2, N1)
 
         # Décaler le deuxième maillage en x
         vtx2[:, 0] += l
@@ -69,12 +69,12 @@ class Mesh:
         plt.figure()
 
         if val is None:
-            plt.triplot(vtx[:, 0], vtx[:, 1], elt)
+            plt.triplot(self.vtx[:, 0], self.vtx[:, 1], self.elt)
         else:
             cmap = plt.get_cmap('viridis')
-            triang = mtri.Triangulation(vtx[:, 0], vtx[:, 1], elt)
+            triang = mtri.Triangulation(self.vtx[:, 0], self.vtx[:, 1], self.elt)
             plt.tripcolor(triang, val, cmap=cmap,
-                        shading='flat', edgecolors='k', lw=0.5)
+                          shading='flat', edgecolors='k', lw=0.5)
             plt.colorbar()
 
         plt.xlabel('x')
@@ -90,13 +90,13 @@ class PDE:
         self.c = c
 
     def generate_rig_matrix(self):
-        nbr_vtx = len(vtx)
-        nbr_elt = len(elt)
+        nbr_vtx = len(self.mesh.vtx)
+        nbr_elt = len(self.mesh.elt)
 
         # Obtenir les coordonnées des sommets des triangles
-        v0 = vtx[elt[:, 0]]
-        v1 = vtx[elt[:, 1]]
-        v2 = vtx[elt[:, 2]]
+        v0 = self.mesh.vtx[self.mesh.elt[:, 0]]
+        v1 = self.mesh.vtx[self.mesh.elt[:, 1]]
+        v2 = self.mesh.vtx[self.mesh.elt[:, 2]]
 
         # Calculer les vecteurs des côtés des triangles et les aires des éléments
         e1 = v1 - v0
@@ -113,24 +113,24 @@ class PDE:
         B = np.einsum('ijk,ilk->ijl', b, b) * areas[:, None, None]
 
         # Assembler les matrices locales dans la matrice globale
-        I = np.repeat(elt[:, :, None], 3, axis=2)
-        J = np.repeat(elt[:, None, :], 3, axis=1)
+        I = np.repeat(self.mesh.elt[:, :, None], 3, axis=2)
+        J = np.repeat(self.mesh.elt[:, None, :], 3, axis=1)
         data = B.flatten()
 
         # Créer la matrice COO à partir des données assemblées
         K = coo_matrix((data, (I.flatten(), J.flatten())),
-                    shape=(nbr_vtx, nbr_vtx))
+                       shape=(nbr_vtx, nbr_vtx))
 
         return K
 
     def generate_second_matrix(self):
-        nbr_vtx = len(vtx)
-        nbr_elt = len(elt)
+        nbr_vtx = len(self.mesh.vtx)
+        nbr_elt = len(self.mesh.elt)
 
         # Calculer les matrices de gradients locaux pour chaque élément
-        v0 = vtx[elt[:, 0]]
-        v1 = vtx[elt[:, 1]]
-        v2 = vtx[elt[:, 2]]
+        v0 = self.mesh.vtx[self.mesh.elt[:, 0]]
+        v1 = self.mesh.vtx[self.mesh.elt[:, 1]]
+        v2 = self.mesh.vtx[self.mesh.elt[:, 2]]
 
         e1 = v1 - v0
         e2 = v2 - v0
@@ -142,23 +142,23 @@ class PDE:
         b_local[:, 1] = (v0 - v2) * invA[:, None]
         b_local[:, 2] = (v1 - v0) * invA[:, None]
 
-        C_local = np.einsum('ijk,i->ijk', b_local, b) * areas[:, None, None]
+        C_local = np.einsum('ijk,i->ijk', b_local, self.b) * areas[:, None, None]
 
         # Assembler les matrices locales dans la matrice globale
-        I = np.repeat(elt[:, :, None], 3, axis=2)
-        J = np.repeat(elt[:, None, :], 3, axis=1)
+        I = np.repeat(self.mesh.elt[:, :, None], 3, axis=2)
+        J = np.repeat(self.mesh.elt[:, None, :], 3, axis=1)
         data = C_local.flatten()
 
         C = coo_matrix((data, (I.flatten(), J.flatten())),
-                    shape=(nbr_vtx, nbr_vtx))
+                       shape=(nbr_vtx, nbr_vtx))
 
         return C
 
     def generate_mass_matrix(self):
         # Calculer les aires des éléments
-        v0 = vtx[elt[:, 0]]
-        v1 = vtx[elt[:, 1]]
-        v2 = vtx[elt[:, 2]]
+        v0 = self.mesh.vtx[self.mesh.elt[:, 0]]
+        v1 = self.mesh.vtx[self.mesh.elt[:, 1]]
+        v2 = self.mesh.vtx[self.mesh.elt[:, 2]]
 
         e1 = v1 - v0
         e2 = v2 - v0
@@ -173,24 +173,26 @@ class PDE:
         return R
 
     def generate_global_matrix(vtx, elt, b, c):
-        return generate_rig_matrix(vtx, elt)+generate_second_matrix(vtx, elt, b)+generate_mass_matrix(vtx, elt, c)
+        return self.generate_rig_matrix(vtx, elt) + self.generate_second_matrix(vtx, elt,
+                                                                                b) + self.generate_mass_matrix(vtx, elt,
+                                                                                                               c)
 
     def assemble_source_term(self, f):
-        n = len(vtx)
+        n = len(self.mesh.vtx)
         b = np.zeros(n)
 
         # Parcourir tous les éléments du maillage
-        for i in range(len(elt)):
-            element = elt[i]
+        for i in range(len(self.mesh.elt)):
+            element = self.mesh.elt[i]
 
             # Calculer la contribution de chaque élément
             for j in range(3):
                 # Récupérer les sommets du triangle
-                v1, v2, v3 = vtx[element]
+                v1, v2, v3 = self.mesh.vtx[element]
 
                 # Calculer l'aire du triangle
-                area = 0.5 * abs((v2[0]-v1[0])*(v3[1]-v1[1]) -
-                                (v3[0]-v1[0])*(v2[1]-v1[1]))
+                area = 0.5 * abs((v2[0] - v1[0]) * (v3[1] - v1[1]) -
+                                 (v3[0] - v1[0]) * (v2[1] - v1[1]))
 
                 # Calculer le centre du triangle
                 centroid = (v1 + v2 + v3) / 3
@@ -226,26 +228,25 @@ class PDE:
 
     def test_mass_matrix(self, beta):
         # Générer la matrice de masse
-        M = generate_mass_matrix(vtx, elt, 1)
+        M = self.generate_mass_matrix(self.mesh.vtx, self.mesh.elt, 1)
 
         # Créer un vecteur u à partir de la fonction u(x) = x1 + x2 + beta
-        u = vtx[:, 0] + vtx[:, 1] + beta
+        u = self.mesh.vtx[:, 0] + self.mesh.vtx[:, 1] + beta
 
         # Appliquer la matrice de masse à u
         Mu = M @ u
 
-
         # Calculer U^T * M * U
         UtMU = u.T @ Mu
-        
-        aire=l*(1-l)*2
+
+        aire = l * (1 - l) * 2
 
         assert np.isclose(UtMU, aire), f"UtMU = {UtMU}, aire = {aire}"
 
     def test_rig_matrix(self, beta):
         # Générer la matrice de rigidité
-        K = generate_rig_matrix(vtx, elt)
+        K = self.generate_rig_matrix(self.mesh.vtx, self.mesh.elt)
 
-        u=np.ones(vtx.shape[0])
-        
-        return np.isclose(K*u,0).all()
+        u = np.ones(self.mesh.vtx.shape[0])
+
+        return np.isclose(K * u, 0).all()
