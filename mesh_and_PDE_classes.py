@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
-from scipy.sparse import coo_matrix, diags
+from scipy.sparse import coo_matrix, csr_matrix, diags
 from scipy.sparse.linalg import spsolve
 
 
@@ -160,26 +160,49 @@ class PDE:
         return second_matrix
 
     def generate_mass_matrix(self):
-        # Calculer les aires des éléments
-        v0 = self.mesh.vtx[self.mesh.elt[:, 0]]
-        v1 = self.mesh.vtx[self.mesh.elt[:, 1]]
-        v2 = self.mesh.vtx[self.mesh.elt[:, 2]]
+        # Nombre de sommets et d'éléments
+        nbr_vtx = len(self.mesh.vtx)
+        nbr_elt = len(self.mesh.elt)
 
-        e1 = v1 - v0
-        e2 = v2 - v0
-        areas = 0.5 * np.abs(np.cross(e1, e2))
+        # Préparation des listes pour stocker les données de la matrice de masse
+        rows = []
+        cols = []
+        data = []
 
-        # Calculer les contributions locales de la matrice de réaction
-        local_contrib = (areas * self.c / 3).repeat(3)
+        # Boucle sur les éléments
+        for i in range(nbr_elt):
+            # Indices des sommets de l'élément
+            idx = self.mesh.elt[i]
+            
+            # Coordonnées des sommets de l'élément
+            xa, ya = self.mesh.vtx[idx[0]]
+            xb, yb = self.mesh.vtx[idx[1]]
+            xc, yc = self.mesh.vtx[idx[2]]
+            
+            # Calcul de l'aire de l'élément (demi aire du parallélogramme défini par les sommets)
+            area = 0.5 * abs((xa-xc)*(yb-ya) - (xa-xb)*(yc-ya))
+            
+            # Contribution de l'élément à la matrice de masse
+            for j in range(3):
+                for k in range(3):
+                    if j == k:  # diagonal term
+                        val = 2 * area / 12
+                    else:  # off-diagonal term
+                        val = area / 12
+                    
+                    # Ajout à la liste des données de la matrice de masse
+                    rows.append(idx[j])
+                    cols.append(idx[k])
+                    data.append(self.c * val)
 
-        # Assembler la matrice globale de réaction
-        R = diags(local_contrib, shape=(len(self.mesh.vtx), len(self.mesh.vtx)))
+        # Assemblage de la matrice de masse
+        M = coo_matrix((data, (rows, cols)), shape=(nbr_vtx, nbr_vtx))
 
-        return R
+        return M
 
     def generate_global_matrix(self):
-        self.global_matrix=self.generate_rig_matrix() + self.generate_second_matrix() + self.generate_mass_matrix()
-
+        self.global_matrix=csr_matrix(self.generate_rig_matrix() + self.generate_second_matrix() + self.generate_mass_matrix())
+        
     def assemble_source_term(self, f):
         n = len(self.mesh.vtx)
         b = np.zeros(n)
@@ -210,31 +233,39 @@ class PDE:
         self.solution=spsolve(self.global_matrix,U)
 
     def plot_approximation(self, v_h):
-        # Afficher le champ linéaire v_h
-        tri = mtri.Triangulation(self.mesh.vtx[:, 0], self.mesh.vtx[:, 1], triangles=self.mesh.elt)
-        plt.tripcolor(tri, v_h, shading='flat', cmap='viridis')
-        plt.colorbar(orientation='vertical', label='u_h')
-        plt.triplot(tri, 'k--', alpha=0.3)
-        plt.tight_layout()
-        plt.show()
+        self.mesh.plot_mesh(v_h)
 
-    def test_mass_matrix(self, beta):
+    def test_mass_matrix(self):
         # Générer la matrice de masse
         M = self.generate_mass_matrix()
 
         # Créer un vecteur u à partir de la fonction u(x) = x1 + x2 + beta
-        u = self.mesh.vtx[:, 0] + self.mesh.vtx[:, 1] + beta
+        u = np.ones(self.mesh.vtx.shape[0])
 
         # Calculer U^T * M * U
         Mu = M @ u
         UtMU = u.T @ Mu
+        return f'la valeur UtMU est-elle égale de celle de l\'aire (2*l-l^2={2*self.mesh.l-self.mesh.l**2}): {abs(2*self.mesh.l-self.mesh.l**2-UtMU)==0}'
 
-        print(f"""l'écart entre U^T * M * U et l'aire vaut {abs(UtMU - self.mesh.l)}""")
-
-    def test_rig_matrix(self, beta):
+    def test_rig_matrix(self):
         # Générer la matrice de rigidité
         K = self.generate_rig_matrix()
 
         u = np.ones(self.mesh.vtx.shape[0])
-
         return f'K*u est-il proche du vecteur nul: {np.isclose(K * u, 0).all()}'
+
+    def test_rig_matrix2(self, alpha, beta):
+        # Générer la matrice de rigidité
+        K = self.generate_rig_matrix()
+        
+        # Nombre de sommets
+        nbr_vtx = len(self.mesh.vtx)
+        
+        # Créer les vecteurs U et V
+        U = np.array([self.mesh.vtx[i, 0] + alpha for i in range(nbr_vtx)])
+        V = np.array([self.mesh.vtx[i, 1] + beta for i in range(nbr_vtx)])
+        
+        # Calculer V^T * K * U
+        result = V.T.dot(K.dot(U))
+        
+        return f'V^T * K * U = {result}, est-ce proche de 0: {np.isclose(result, 0)}'

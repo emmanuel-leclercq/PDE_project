@@ -26,6 +26,8 @@ la classe PDE, qui contient:
 -Une méthode generate_global_matrix() qui initialise l'attribut global_matrix
 -Une méthode assemble_source_term(f) qui initialise l'atttribut source_term pour la fonction source f
 -Une méthode solve(f) qui résoud numériquement l'équation lorsque la fonction source vaut f, cela retourne un vecteur
+-Une méthode test_mass_matrix(beta) qui teste si UtMU est proche de l'aire (=l) 
+-Une méthode test_rig_matrix(beta)
 
 On définit également deux fonctions en dehors des classes:
 -Une fonction plot_approximation(v_h,vtx,elt) qui permet l'affichage d'un champ linéaire par morceau v_h sur un maillage, on l'utilise dans le fichier main.py pour représenter la solution numérique u_h

@@ -23,5 +23,6 @@ pde.solve(f)
 pde.plot_approximation(pde.solution)  # ici on suppose que la solution exacte est égale à la solution numérique
 
 # Test des matrices
-print(pde.test_mass_matrix(beta=0.5))
-print(pde.test_rig_matrix(beta=0.5))
+print(pde.test_mass_matrix())
+print(pde.test_rig_matrix())
+print(pde.test_rig_matrix2(10,-23))
