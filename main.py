@@ -1,11 +1,14 @@
 from mesh_and_PDE_classes import PDE, Mesh
 import numpy as np
 
+#Prenons des valeurs de l et N (nombre de subdivisions) arbitraires
+l=0.6
+N=20
 # Création d'un maillage rectangulaire
-rect_mesh = Mesh.generate_rectangle(Lx=1.0, Ly=1.0, Nx=10, Ny=10)
+rect_mesh = Mesh.GenerateLShapeMesh(l,N)
 
 # Affichage du maillage
-rect_mesh.plot()
+rect_mesh.PlotMesh()
 
 # Création d'une PDE sur ce maillage
 pde = PDE(mesh=rect_mesh, b=np.array([1, 1]), c=1)

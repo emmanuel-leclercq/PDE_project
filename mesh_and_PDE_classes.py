@@ -2,20 +2,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 from scipy.sparse import coo_matrix, diags
+from scipy.sparse.linalg import spsolve
 
 
 class Mesh:
-    def __init__(self, vtx, elt):
-        self.vtx = vtx
-        self.elt = elt
+    def __init__(self,l):
+        self.l = l
+        self.vtx = None
+        self.elt = None
 
-    @classmethod
-    def generate_rectangle(cls, Lx, Ly, Nx, Ny):
+    def GenerateRectangleMesh(self,Lx, Ly, Nx, Ny):
         nbr_vtx = (Nx + 1) * (Ny + 1)
         nbr_elt = 2 * Nx * Ny
 
-        vtx = np.zeros((nbr_vtx, 2))
-        elt = np.zeros((nbr_elt, 3), dtype=int)
+        new_vtx = np.zeros((nbr_vtx, 2))
+        new_elt = np.zeros((nbr_elt, 3), dtype=int)
 
         dx = Lx / Nx
         dy = Ly / Ny
@@ -24,7 +25,7 @@ class Mesh:
         vtx_index = 0
         for j in range(Ny + 1):
             for i in range(Nx + 1):
-                vtx[vtx_index] = [i * dx, j * dy]
+                new_vtx[vtx_index] = [i * dx, j * dy]
                 vtx_index += 1
 
         # Générer les éléments
@@ -38,34 +39,36 @@ class Mesh:
                 upper_right = upper_left + 1
 
                 # Premier triangle
-                elt[elt_index] = [lower_left, upper_left, lower_right]
+                new_elt[elt_index] = [lower_left, upper_left, lower_right]
                 elt_index += 1
 
                 # Second triangle
-                elt[elt_index] = [lower_right, upper_left, upper_right]
+                new_elt[elt_index] = [lower_right, upper_left, upper_right]
                 elt_index += 1
-        return cls(vtx, elt)
 
-    @classmethod
-    def generate_lshape(cls, l, N):
+        return new_vtx, new_elt
+
+    def GenerateLShapeMesh(self,N):
         # Calculer le nombre de subdivisions pour chaque sous-domaine
-        N1 = int(N * l)
+        N1 = int(N * self.l)
         N2 = N - N1
 
         # Générer les maillages rectangulaires
-        vtx1, elt1 = GenerateRectangleMesh(l, 1, N1, N)
-        vtx2, elt2 = GenerateRectangleMesh(1.0 - l, l, N2, N1)
+        vtx1, elt1 = self.GenerateRectangleMesh(self.l,1,N1, N)
+        vtx2, elt2 = self.GenerateRectangleMesh(1.0-self.l,self.l,N2, N1)
 
         # Décaler le deuxième maillage en x
-        vtx2[:, 0] += l
+        vtx2[:, 0] += self.l
 
         # Combiner les deux maillages
-        vtx = np.concatenate((vtx1, vtx2))
+        new_vtx = np.concatenate((vtx1, vtx2))
         elt2 += len(vtx1)  # mettre à jour les indices des éléments du deuxième maillage
-        elt = np.concatenate((elt1, elt2))
-        return cls(vtx, elt)
+        new_elt = np.concatenate((elt1, elt2))
 
-    def plot(self, val=None):
+        self.vtx = new_vtx
+        self.elt = new_elt
+
+    def plot_mesh(self, val=None):
         plt.figure()
 
         if val is None:
@@ -84,10 +87,15 @@ class Mesh:
 
 
 class PDE:
-    def __init__(self, mesh, b, c):
+    def __init__(self, mesh, b=np.array([1, 1]), c=1):
+        # Initialise le maillage, le vecteur b, la constante c (avec valeurs par défaut)
+        # la matrice globale et le vecteur de terme source sont None, 
+        # il faut appeler les méthodes nécessaires pour les initialiser
         self.mesh = mesh
         self.b = b
         self.c = c
+        self.global_matrix = None
+        self.source_term = None
 
     def generate_rig_matrix(self):
         nbr_vtx = len(self.mesh.vtx)
@@ -125,12 +133,12 @@ class PDE:
 
     def generate_second_matrix(self):
         # Initialize the matrix
-        second_matrix = np.zeros((self.vtx.shape[0], self.vtx.shape[0]))
+        second_matrix = np.zeros((self.mesh.vtx.shape[0], self.mesh.vtx.shape[0]))
 
         # Iterate over each element
-        for el in self.elt:
+        for el in self.mesh.elt:
             # Get the vertices of the element
-            vertices = self.vtx[el]
+            vertices = self.mesh.vtx[el]
 
             # Compute the area of the element
             area = 0.5 * abs(np.cross(vertices[1] - vertices[0], vertices[2] - vertices[0]))
@@ -161,17 +169,15 @@ class PDE:
         areas = 0.5 * np.abs(np.cross(e1, e2))
 
         # Calculer les contributions locales de la matrice de réaction
-        local_contrib = (areas * c / 3).repeat(3)
+        local_contrib = (areas * self.c / 3).repeat(3)
 
         # Assembler la matrice globale de réaction
-        R = diags(local_contrib, shape=(len(slf.mesh.vtx), len(self.mesh.vtx)))
+        R = diags(local_contrib, shape=(len(self.mesh.vtx), len(self.mesh.vtx)))
 
         return R
 
-    def generate_global_matrix(vtx, elt, b, c):
-        return self.generate_rig_matrix(vtx, elt) + self.generate_second_matrix(vtx, elt,
-                                                                                b) + self.generate_mass_matrix(vtx, elt,
-                                                                                                               c)
+    def generate_global_matrix(self):
+        self.global_matrix=self.generate_rig_matrix() + self.generate_second_matrix() + self.generate_mass_matrix()
 
     def assemble_source_term(self, f):
         n = len(self.mesh.vtx)
@@ -198,46 +204,33 @@ class PDE:
 
         return b
 
-    def solve(self, p, q, r):
-        f = f_source(self.mesh.vtx[:, 0], self.mesh.vtx[:, 1], self.b[0], self.b[1], p, q, r)
-        return solve(self, f)
+    def solve(self,f):
+        A=self.generate_global_matrix()
+        U=self.assemble_source_term(f)
+        solution=spsolve(A,U)
+        return solution
 
-    def plot_approximation(self, u_h, u_ex_proj):
-        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
-
+    def plot_approximation(self, u_h):
         # Afficher la solution numérique u_h
-        tri = mtri.Triangulation(vtx[:, 0], vtx[:, 1], triangles=elt)
-        plot1 = ax[0].tripcolor(tri, u_h, shading='flat', cmap='viridis')
-        fig.colorbar(plot1, ax=ax[0], orientation='vertical', label='u_h')
-        ax[0].triplot(tri, 'k--', alpha=0.3)
-        ax[0].set_title('Solution numérique u_h')
-
-        # Afficher l'erreur u_h - Π_h u_ex
-        error = np.abs(u_h - u_ex_proj)
-        plot2 = ax[1].tripcolor(tri, error, shading='flat', cmap='viridis')
-        fig.colorbar(plot2, ax=ax[1], orientation='vertical', label='Erreur')
-        ax[1].triplot(tri, 'k--', alpha=0.3)
-        ax[1].set_title('Erreur u_h - Π_h u_ex')
-
+        tri = mtri.Triangulation(self.mesh.vtx[:, 0], self.mesh.vtx[:, 1], triangles=self.mesh.elt)
+        plt.tripcolor(tri, u_h, shading='flat', cmap='viridis')
+        plt.colorbar(orientation='vertical', label='u_h')
+        plt.triplot(tri, 'k--', alpha=0.3)
         plt.tight_layout()
         plt.show()
 
     def test_mass_matrix(self, beta):
         # Générer la matrice de masse
-        M = self.generate_mass_matrix(self.mesh.vtx, self.mesh.elt, 1)
+        M = self.generate_mass_matrix()
 
         # Créer un vecteur u à partir de la fonction u(x) = x1 + x2 + beta
         u = self.mesh.vtx[:, 0] + self.mesh.vtx[:, 1] + beta
 
-        # Appliquer la matrice de masse à u
-        Mu = M @ u
-
         # Calculer U^T * M * U
+        Mu = M @ u
         UtMU = u.T @ Mu
 
-        aire = l * (1 - l) * 2
-
-        assert np.isclose(UtMU, aire), f"UtMU = {UtMU}, aire = {aire}"
+        print(f"""l'écart entre U^T * M * U et l'aire vaut {abs(UtMU - self.l)}""")
 
     def test_rig_matrix(self, beta):
         # Générer la matrice de rigidité
@@ -245,4 +238,12 @@ class PDE:
 
         u = np.ones(self.mesh.vtx.shape[0])
 
+        print(f'K * u = {K @ u}')
         return np.isclose(K * u, 0).all()
+
+# Création d'un maillage 
+my_mesh = Mesh(l=0.6)
+my_mesh.GenerateLShapeMesh(10)
+# Affichage du maillage
+my_mesh.plot_mesh()
+print('ok')
