@@ -1,32 +1,26 @@
 from mesh_and_PDE_classes import PDE, Mesh
 import numpy as np
 
-#Prenons des valeurs de l et N (nombre de subdivisions) arbitraires
-l=0.6
-N=20
-# Création d'un maillage rectangulaire
-rect_mesh = Mesh.GenerateLShapeMesh(l,N)
-
-# Affichage du maillage
-rect_mesh.PlotMesh()
+L_mesh=Mesh(0.6)
+L_mesh.GenerateLShapeMesh(15)
 
 # Création d'une PDE sur ce maillage
-pde = PDE(mesh=rect_mesh, b=np.array([1, 1]), c=1)
+pde = PDE(mesh=L_mesh)
 
 # Assemblage des matrices
-rig_matrix = pde.generate_rig_matrix()
-second_matrix = pde.generate_second_matrix()
-mass_matrix = pde.generate_mass_matrix()
+pde.generate_global_matrix()
 
 # Assemblage du terme source
-f = lambda x, y: np.sin(x) * np.sin(y)  # exemple de fonction source
-source_term = pde.assemble_source_term(f)
+def f_source(x, y, b_x, b_y, p, q, r):
+    return np.exp((b_x * x + b_y * y) / 2) * np.sin(p * r * np.pi * x) * np.sin(q * r * np.pi * y)
+
+f = lambda x, y: f_source(x,y,1,1,2,3,4)  # exemple de fonction source
 
 # Résolution de la PDE
-solution = pde.solve(p=1, q=1, r=1)
+pde.solve(f)
 
 # Affichage de la solution
-pde.plot_approximation(solution, solution)  # ici on suppose que la solution exacte est égale à la solution numérique
+pde.plot_approximation(pde.solution)  # ici on suppose que la solution exacte est égale à la solution numérique
 
 # Test des matrices
 print(pde.test_mass_matrix(beta=0.5))

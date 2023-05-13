@@ -96,6 +96,7 @@ class PDE:
         self.c = c
         self.global_matrix = None
         self.source_term = None
+        self.solution=None
 
     def generate_rig_matrix(self):
         nbr_vtx = len(self.mesh.vtx)
@@ -205,15 +206,13 @@ class PDE:
         return b
 
     def solve(self,f):
-        A=self.generate_global_matrix()
         U=self.assemble_source_term(f)
-        solution=spsolve(A,U)
-        return solution
+        self.solution=spsolve(self.global_matrix,U)
 
-    def plot_approximation(self, u_h):
-        # Afficher la solution numérique u_h
+    def plot_approximation(self, v_h):
+        # Afficher le champ linéaire v_h
         tri = mtri.Triangulation(self.mesh.vtx[:, 0], self.mesh.vtx[:, 1], triangles=self.mesh.elt)
-        plt.tripcolor(tri, u_h, shading='flat', cmap='viridis')
+        plt.tripcolor(tri, v_h, shading='flat', cmap='viridis')
         plt.colorbar(orientation='vertical', label='u_h')
         plt.triplot(tri, 'k--', alpha=0.3)
         plt.tight_layout()
@@ -230,20 +229,12 @@ class PDE:
         Mu = M @ u
         UtMU = u.T @ Mu
 
-        print(f"""l'écart entre U^T * M * U et l'aire vaut {abs(UtMU - self.l)}""")
+        print(f"""l'écart entre U^T * M * U et l'aire vaut {abs(UtMU - self.mesh.l)}""")
 
     def test_rig_matrix(self, beta):
         # Générer la matrice de rigidité
-        K = self.generate_rig_matrix(self.mesh.vtx, self.mesh.elt)
+        K = self.generate_rig_matrix()
 
         u = np.ones(self.mesh.vtx.shape[0])
 
-        print(f'K * u = {K @ u}')
-        return np.isclose(K * u, 0).all()
-
-# Création d'un maillage 
-my_mesh = Mesh(l=0.6)
-my_mesh.GenerateLShapeMesh(10)
-# Affichage du maillage
-my_mesh.plot_mesh()
-print('ok')
+        return f'K*u est-il proche du vecteur nul: {np.isclose(K * u, 0).all()}'
