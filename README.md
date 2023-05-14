@@ -1,8 +1,9 @@
-## Projet de simulation d'une équation différentielle par la méthode des éléments finis
+# Projet d'approximation numérique de la solution d'une équation différentielle par la méthode des éléments finis
 
 On a définit deux classes de structures simples dans le fichier mesh_and_PDE_classes.py pour résoudre le problème
 
-# La classe Mesh, qui contient:
+
+## La classe Mesh, qui contient:
 
 -un attribut l (le paramètre dans la définition de omega)
 
@@ -19,7 +20,8 @@ avec en paramètre la longueur horizontale, longueur verticale, nombre de subdiv
 -Une méthode plot_mesh(self, val=None) permettant la visualisation du maillage
 
 
-# la classe PDE, qui contient:
+
+## la classe PDE, qui contient:
 
 -L'attribut mesh, objet de la classe précédemment décrite
 
