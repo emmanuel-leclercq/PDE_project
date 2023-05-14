@@ -1,5 +1,7 @@
 # Projet d'approximation numérique de la solution d'une équation différentielle par la méthode des éléments finis
 
+La partie principale du code se trouve dans le fichier notebook main.ipynb (à ouvrir dans un éditeur compatible, tel que pycharm, VSCode ou jupyterlab/jupyter Notebook) avec les graphiques déjà générés. On ajoute également un fichier main.py qui reprend le même code en format .py
+
 On a définit deux classes de structures simples dans le fichier mesh_and_PDE_classes.py pour résoudre le problème
 
 
