@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.linalg import spsolve
-from scipy.interpolate import griddata
-
 
 class Mesh:
     def __init__(self, l):
