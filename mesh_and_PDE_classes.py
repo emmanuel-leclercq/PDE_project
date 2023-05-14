@@ -78,7 +78,7 @@ class Mesh:
         else:
             triang = mtri.Triangulation(
                 self.vtx[:, 0], self.vtx[:, 1], self.elt)
-            plt.tripcolor(triang, val, shading='flat', cmap='viridis')
+            plt.tripcolor(triang, val, shading='flat', cmap='coolwarm')
             plt.colorbar(orientation='vertical')
             plt.triplot(triang, 'k--', alpha=0.3)
 
@@ -234,14 +234,14 @@ class PDE:
                 # Ajouter la contribution de l'élément à l'intégrale
                 b[element[j]] += area * f(*centroid)
 
-        return b
+        self.source_term=b
 
     def solve(self, f):
-        U = self.assemble_source_term(f)
-        self.solution = spsolve(self.global_matrix, U)
+        self.assemble_source_term(f)
+        self.solution = spsolve(self.global_matrix, self.source_term)
 
     def plot_approximation(self, v_h):
-        self.mesh.plot_mesh(v_h)
+        self.mesh.plot_mesh(val=v_h)
 
     def test_mass_matrix(self):
         # Générer la matrice de masse

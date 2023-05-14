@@ -1,6 +1,6 @@
 # PDE_project
 
-On a définit deux classes de structures simples pour résoudre le problème
+On a définit deux classes de structures simples dans le fichier mesh_and_PDE_classes.py pour résoudre le problème
 
 La classe Mesh, qui contient:
 -un attribut l (le paramètre dans la définition de omega)
@@ -31,5 +31,4 @@ la classe PDE, qui contient:
 -Une méthode test_rig_matrix(alpha,beta) qui teste si VtKU est proche de zéro
 -Une méthode plot_approximation(v_h) qui permet l'affichage d'un champ linéaire par morceau v_h sur le maillage
 
-On définit également une fonction en dehors des classes dans le fichier main.py:
-La fonction plot_convergence(rafinements=np.array([10,25,50,100,200,500,1000])) qui trace la convergence de l'erreur avec les niveaux de rafinements pris en paramètre sous forme d'un vecteur
+On définit également la fonction plot_convergence(rafinements=np.array([10,25,50,100])) qui trace la convergence de l'erreur avec les niveaux de rafinements pris en paramètre sous forme d'un vecteur, en dehors des classes dans le fichier main.ipynb (fichier notebook qui permet de simplifier l'affichage des graphiques).
