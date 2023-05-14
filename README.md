@@ -60,7 +60,7 @@ avec en paramètre la longueur horizontale, longueur verticale, nombre de subdiv
 On définit également la fonction plot_convergence(rafinements=np.array([10,25,50,100])) qui trace la convergence de l'erreur avec les niveaux de rafinements pris en paramètre sous forme d'un vecteur, en dehors des classes dans le fichier main.ipynb (fichier notebook qui permet de simplifier l'affichage des graphiques).
 
 
-Utilisation:
+## Utilisation:
 
 -Créer un objet my_mesh=Mesh(l=...)
 
