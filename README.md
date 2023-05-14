@@ -26,9 +26,10 @@ la classe PDE, qui contient:
 -Une méthode generate_global_matrix() qui initialise l'attribut global_matrix
 -Une méthode assemble_source_term(f) qui initialise l'atttribut source_term pour la fonction source f
 -Une méthode solve(f) qui résoud numériquement l'équation lorsque la fonction source vaut f, cela retourne un vecteur
--Une méthode test_mass_matrix(beta) qui teste si UtMU est proche de l'aire (=l) 
--Une méthode test_rig_matrix(beta)
+-Une méthode test_mass_matrix() qui teste si UtMU est proche de l'aire (=l)
+-Une méthode test_rig_matrix() qui teste si le vecteur KU est proche du vecteur nul
+-Une méthode test_rig_matrix(alpha,beta) qui teste si VtKU est proche de zéro
+-Une méthode plot_approximation(v_h) qui permet l'affichage d'un champ linéaire par morceau v_h sur le maillage
 
-On définit également deux fonctions en dehors des classes:
--Une fonction plot_approximation(v_h,vtx,elt) qui permet l'affichage d'un champ linéaire par morceau v_h sur un maillage, on l'utilise dans le fichier main.py pour représenter la solution numérique u_h
--Une fonction plot_convergence()
+On définit également une fonction en dehors des classes dans le fichier main.py:
+La fonction plot_convergence(rafinements=np.array([10,25,50,100,200,500,1000])) qui trace la convergence de l'erreur avec les niveaux de rafinements pris en paramètre sous forme d'un vecteur

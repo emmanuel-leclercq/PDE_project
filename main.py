@@ -22,6 +22,10 @@ pde.solve(f)
 # Affichage de la solution
 pde.plot_approximation(pde.solution)  # ici on suppose que la solution exacte est égale à la solution numérique
 
+#solution exacte pour b_x=b_y=c=1
+def u_ex(x,y, p, q, r):
+    return f_source(x,y,b_x, b_y, p, q, r)/(p**2+q**2+r**2)/(1 + 1/4 + 1/4 + (p*r*%pi)^2 + (q*r*%pi)^2 )
+
 # Test des matrices
 print(pde.test_mass_matrix())
 print(pde.test_rig_matrix())

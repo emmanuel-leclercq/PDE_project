@@ -1,17 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
-from scipy.sparse import coo_matrix, csr_matrix, diags
+from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.linalg import spsolve
+from scipy.interpolate import griddata
 
 
 class Mesh:
-    def __init__(self,l):
+    def __init__(self, l):
         self.l = l
         self.vtx = None
         self.elt = None
 
-    def GenerateRectangleMesh(self,Lx, Ly, Nx, Ny):
+    def GenerateRectangleMesh(self, Lx, Ly, Nx, Ny):
         nbr_vtx = (Nx + 1) * (Ny + 1)
         nbr_elt = 2 * Nx * Ny
 
@@ -48,21 +49,22 @@ class Mesh:
 
         return new_vtx, new_elt
 
-    def GenerateLShapeMesh(self,N):
+    def GenerateLShapeMesh(self, N):
         # Calculer le nombre de subdivisions pour chaque sous-domaine
         N1 = int(N * self.l)
         N2 = N - N1
 
         # Générer les maillages rectangulaires
-        vtx1, elt1 = self.GenerateRectangleMesh(self.l,1,N1, N)
-        vtx2, elt2 = self.GenerateRectangleMesh(1.0-self.l,self.l,N2, N1)
+        vtx1, elt1 = self.GenerateRectangleMesh(self.l, 1, N1, N)
+        vtx2, elt2 = self.GenerateRectangleMesh(1.0-self.l, self.l, N2, N1)
 
         # Décaler le deuxième maillage en x
         vtx2[:, 0] += self.l
 
         # Combiner les deux maillages
         new_vtx = np.concatenate((vtx1, vtx2))
-        elt2 += len(vtx1)  # mettre à jour les indices des éléments du deuxième maillage
+        # mettre à jour les indices des éléments du deuxième maillage
+        elt2 += len(vtx1)
         new_elt = np.concatenate((elt1, elt2))
 
         self.vtx = new_vtx
@@ -74,29 +76,29 @@ class Mesh:
         if val is None:
             plt.triplot(self.vtx[:, 0], self.vtx[:, 1], self.elt)
         else:
-            cmap = plt.get_cmap('viridis')
-            triang = mtri.Triangulation(self.vtx[:, 0], self.vtx[:, 1], self.elt)
-            plt.tripcolor(triang, val, cmap=cmap,
-                          shading='flat', edgecolors='k', lw=0.5)
-            plt.colorbar()
+            triang = mtri.Triangulation(
+                self.vtx[:, 0], self.vtx[:, 1], self.elt)
+            plt.tripcolor(triang, val, shading='flat', cmap='viridis')
+            plt.colorbar(orientation='vertical')
+            plt.triplot(triang, 'k--', alpha=0.3)
 
         plt.xlabel('x')
         plt.ylabel('y')
-        plt.title('Maillage')
+        plt.tight_layout()
         plt.show()
 
 
 class PDE:
     def __init__(self, mesh, b=np.array([1, 1]), c=1):
         # Initialise le maillage, le vecteur b, la constante c (avec valeurs par défaut)
-        # la matrice globale et le vecteur de terme source sont None, 
+        # la matrice globale et le vecteur de terme source sont None,
         # il faut appeler les méthodes nécessaires pour les initialiser
         self.mesh = mesh
         self.b = b
         self.c = c
         self.global_matrix = None
         self.source_term = None
-        self.solution=None
+        self.solution = None
 
     def generate_rig_matrix(self):
         nbr_vtx = len(self.mesh.vtx)
@@ -134,7 +136,8 @@ class PDE:
 
     def generate_second_matrix(self):
         # Initialize the matrix
-        second_matrix = np.zeros((self.mesh.vtx.shape[0], self.mesh.vtx.shape[0]))
+        second_matrix = np.zeros(
+            (self.mesh.vtx.shape[0], self.mesh.vtx.shape[0]))
 
         # Iterate over each element
         for el in self.mesh.elt:
@@ -142,15 +145,19 @@ class PDE:
             vertices = self.mesh.vtx[el]
 
             # Compute the area of the element
-            area = 0.5 * abs(np.cross(vertices[1] - vertices[0], vertices[2] - vertices[0]))
+            area = 0.5 * \
+                abs(np.cross(vertices[1] - vertices[0],
+                    vertices[2] - vertices[0]))
 
             # Compute the gradient of the shape functions
             grad_N = np.array([[vertices[1, 1] - vertices[2, 1], vertices[2, 0] - vertices[1, 0]],
-                            [vertices[2, 1] - vertices[0, 1], vertices[0, 0] - vertices[2, 0]],
-                            [vertices[0, 1] - vertices[1, 1], vertices[1, 0] - vertices[0, 0]]]) / (2 * area)
+                               [vertices[2, 1] - vertices[0, 1],
+                                   vertices[0, 0] - vertices[2, 0]],
+                               [vertices[0, 1] - vertices[1, 1], vertices[1, 0] - vertices[0, 0]]]) / (2 * area)
 
             # Compute the local convection matrix
-            local_second_matrix = area * (self.b[0] * np.outer(grad_N[:, 0], grad_N[:, 0]) + self.b[1] * np.outer(grad_N[:, 1], grad_N[:, 1]))
+            local_second_matrix = area * (self.b[0] * np.outer(
+                grad_N[:, 0], grad_N[:, 0]) + self.b[1] * np.outer(grad_N[:, 1], grad_N[:, 1]))
 
             # Add the local convection matrix to the global matrix
             for i in range(3):
@@ -173,15 +180,15 @@ class PDE:
         for i in range(nbr_elt):
             # Indices des sommets de l'élément
             idx = self.mesh.elt[i]
-            
+
             # Coordonnées des sommets de l'élément
             xa, ya = self.mesh.vtx[idx[0]]
             xb, yb = self.mesh.vtx[idx[1]]
             xc, yc = self.mesh.vtx[idx[2]]
-            
+
             # Calcul de l'aire de l'élément (demi aire du parallélogramme défini par les sommets)
             area = 0.5 * abs((xa-xc)*(yb-ya) - (xa-xb)*(yc-ya))
-            
+
             # Contribution de l'élément à la matrice de masse
             for j in range(3):
                 for k in range(3):
@@ -189,7 +196,7 @@ class PDE:
                         val = 2 * area / 12
                     else:  # off-diagonal term
                         val = area / 12
-                    
+
                     # Ajout à la liste des données de la matrice de masse
                     rows.append(idx[j])
                     cols.append(idx[k])
@@ -201,8 +208,9 @@ class PDE:
         return M
 
     def generate_global_matrix(self):
-        self.global_matrix=csr_matrix(self.generate_rig_matrix() + self.generate_second_matrix() + self.generate_mass_matrix())
-        
+        self.global_matrix = csr_matrix(self.generate_rig_matrix(
+        ) + self.generate_second_matrix() + self.generate_mass_matrix())
+
     def assemble_source_term(self, f):
         n = len(self.mesh.vtx)
         b = np.zeros(n)
@@ -228,9 +236,9 @@ class PDE:
 
         return b
 
-    def solve(self,f):
-        U=self.assemble_source_term(f)
-        self.solution=spsolve(self.global_matrix,U)
+    def solve(self, f):
+        U = self.assemble_source_term(f)
+        self.solution = spsolve(self.global_matrix, U)
 
     def plot_approximation(self, v_h):
         self.mesh.plot_mesh(v_h)
@@ -257,15 +265,37 @@ class PDE:
     def test_rig_matrix2(self, alpha, beta):
         # Générer la matrice de rigidité
         K = self.generate_rig_matrix()
-        
+
         # Nombre de sommets
         nbr_vtx = len(self.mesh.vtx)
-        
+
         # Créer les vecteurs U et V
         U = np.array([self.mesh.vtx[i, 0] + alpha for i in range(nbr_vtx)])
         V = np.array([self.mesh.vtx[i, 1] + beta for i in range(nbr_vtx)])
-        
+
         # Calculer V^T * K * U
         result = V.T.dot(K.dot(U))
-        
+
         return f'V^T * K * U = {result}, est-ce proche de 0: {np.isclose(result, 0)}'
+
+    
+    def plot_error(self, u_ex):
+        # Calcul de la solution exacte sur les sommets du maillage
+        x_nodes = self.mesh.vtx[:, 0]
+        y_nodes = self.mesh.vtx[:, 1]
+
+        # Effectuer une interpolation de Lagrange de u_ex aux noeuds de la grille
+        u_ex_interpolated = np.interp(x=x_nodes,xp=x_nodes, fp=u_ex(x_nodes, y_nodes))
+        # Calculer l'erreur u_h - Π_h(u_ex)
+        error = self.solution - u_ex_interpolated
+        # Plot the error
+        self.plot_approximation(error)
+
+    def compute_L2_norm(self, u):
+        #calcul de la norme L2 
+        areas = np.abs(np.cross(self.mesh.vtx[self.mesh.elt[:, 1], :] - self.mesh.vtx[self.mesh.elt[:, 0], :], self.mesh.vtx[self.mesh.elt[:, 2], :] - self.mesh.vtx[self.mesh.elt[:, 0], :])) / 2
+        node_areas = np.zeros(len(self.mesh.vtx))
+        np.add.at(node_areas, self.mesh.elt, areas[:, None] / 3)
+        return np.sqrt(np.sum(node_areas * u**2))
+
+    
